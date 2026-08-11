@@ -47,11 +47,11 @@ inline static void* SystemAlloc(size_t kpage)
 	// linux下brk mmap等
 	void* ptr = mmap(
         nullptr,
-        kpage << 13,
-        PROT_READ | PROT_WRITE,
-        MAP_PRIVATE | MAP_ANONYMOUS,
-        -1,
-        0
+		kpage<<13,
+		PROT_READ|PROT_WRITE,
+		MAP_ANONYMOUS|MAP_PRIVATE,
+		-1,
+		0
     );
 
     if (ptr == MAP_FAILED)
@@ -67,6 +67,62 @@ inline static void* SystemAlloc(size_t kpage)
 
 	return ptr;
 }
+
+static void*& NextObj(void* obj){
+	return *(void**)obj;
+}
+
+class FreeList{
+public:
+void Push(void* obj){
+	//头插
+	assert(obj);
+	NextObj(obj)=_freelist;
+	_freelist=obj;
+	_size++;
+}
+void PushRange(void* start,void* end,size_t n){
+	NextObj(end)=_freelist;
+	_freelist=start;
+	_size+=n;
+}
+void PopRange(void*& start,void*& end,size_t n){
+	//弹出一段list中的一段地址
+	//⚠️这里也同样拿到了start和end
+	assert(n<=_size);
+	_freelist=start;
+	end=start;
+	for(int i=0;i<n-1;i++){
+		end=NextObj(end);
+
+	}
+	_freelist=NextObj(end);
+	NextObj(end)=nullptr;
+	_size-=n;
+
+}
+void* Pop(){
+	//头删
+	assert(_freelist);
+	void* obj=_freelist;
+	_freelist=NextObj(obj);
+	_size--;
+	return obj;
+}
+bool Empty(){
+	return _freelist==nullptr;
+}
+size_t& MaxSize(){
+	return _MaxSize;
+}
+size_t& Size(){
+	return _size;
+}
+private:
+	void* _freelist=nullptr;
+	size_t _MaxSize=1;
+	size_t _size=0;
+};
 
 
 inline static void SystemFree(void* ptr, size_t kpage)
