@@ -68,6 +68,15 @@ inline static void* SystemAlloc(size_t kpage)
 	return ptr;
 }
 
+inline static void SystemFree(void* ptr, size_t kpage)
+{
+#ifdef _WIN32
+    VirtualFree(ptr, 0, MEM_RELEASE);
+#else
+    munmap(ptr, kpage << PAGE_SHIFT);
+#endif
+}
+
 static void*& NextObj(void* obj){
 	return *(void**)obj;
 }
@@ -125,22 +134,7 @@ private:
 };
 
 
-inline static void SystemFree(void* ptr, size_t kpage)
-{
-#ifdef _WIN32
-    VirtualFree(ptr, 0, MEM_RELEASE);
-#else
-    munmap(ptr, kpage << PAGE_SHIFT);
-#endif
-}
-class FreeList
-{
-public:
-private:
-    void* _freelist=nullptr;
-    size_t _maxSize=1;
-    size_t _size=0;
-};
+
 
 class SizeClass
 {
