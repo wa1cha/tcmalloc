@@ -263,6 +263,66 @@ public:
         _head->_next=_head;
         _head->_prev=_head;
     }
+
+	Span* Begin()
+	{
+		return _head->_next;
+	}
+
+	Span* End()
+	{
+		return _head;
+	}
+
+	bool Empty()
+	{
+		return _head->_next == _head;
+	}
+
+	void PushFront(Span* span)
+	{
+		Insert(Begin(), span);
+	}
+
+	Span* PopFront()
+	{
+		Span* front = _head->_next;
+		Erase(front);
+		return front;
+	}
+
+	void Insert(Span* pos, Span* newSpan)
+	{
+		assert(pos);
+		assert(newSpan);
+
+		Span* prev = pos->_prev;
+		// prev newspan pos
+		prev->_next = newSpan;
+		newSpan->_prev = prev;
+		newSpan->_next = pos;
+		pos->_prev = newSpan;
+	}
+
+	void Erase(Span* pos)
+	{
+		assert(pos);
+		assert(pos != _head);
+
+		// 1、条件断点
+		// 2、查看栈帧
+		/*if (pos == _head)
+		{
+		int x = 0;
+		}*/
+
+		Span* prev = pos->_prev;
+		Span* next = pos->_next;
+
+		prev->_next = next;
+		next->_prev = prev;
+	}
+
 private:
     Span* _head;
 public:
