@@ -99,7 +99,7 @@ void PopRange(void*& start,void*& end,size_t n){
 	//弹出一段list中的一段地址
 	//⚠️这里也同样拿到了start和end
 	assert(n<=_size);
-	_freelist=start;
+	start=_freelist;
 	end=start;
 	for(int i=0;i<n-1;i++){
 		end=NextObj(end);

@@ -4,7 +4,44 @@
 CentralCache CentralCache::_sInst;
 
 Span* CentralCache::GetOneSpan(SpanList& list,size_t byte_size){
-    
+    // 先看桶里已有的span，谁还有空闲对象就用谁                                                                                                          
+      Span* it = list.Begin();                                                                                                                             
+      while (it != list.End())                                                                                                                             
+      {                                                                                                                                                    
+          if (it->_freeList != nullptr)                                                                                                                    
+              return it;                                                                                                                                   
+          it = it->_next;                                                                                                                                  
+      }                                                                                                                                                    
+                                                                                                                                                           
+      // 桶里没有空闲span了 -> 先解锁桶，别挡着其他线程归还对象，然后找PageCache要                                                                         
+      list._mtx.unlock();                                         
+                                                                                                                                                           
+      PageCache::Getinstance()->_pageMtx.lock();                                                                                                           
+      Span* span = PageCache::Getinstance()->NewSpan(SizeClass::NumMovePage(byte_size));                                                                        
+      span->_isUse = true;                                                                                                                                 
+      span->_objSize = byte_size;                                                                                                                               
+      PageCache::Getinstance()->_pageMtx.unlock();                                                                                                         
+                                                                                                                                                           
+      // 把这块大内存切成 size 大小的对象，用 NextObj 串成链表                                                                                             
+      char* start = (char*)(span->_pageId << PAGE_SHIFT);                                                                                                  
+      size_t bytes = span->_n << PAGE_SHIFT;                                                                                                               
+      char* end = start + bytes;                                                                                                                           
+                                                                                                                                                           
+      span->_freeList = start;   // 先切一块当头部                                                                                                         
+      start += byte_size;                                                                                                                                       
+      void* tail = span->_freeList;                                                                                                                        
+      while (start < end)
+      {
+          NextObj(tail) = start;
+          tail = NextObj(tail);
+          start += byte_size;
+      }
+      NextObj(tail) = nullptr;   // 链表收尾
+
+      // 切好后再加锁挂进桶
+      list._mtx.lock();
+      list.PushFront(span);
+      return span;
 }
 
 
@@ -21,7 +58,7 @@ void CentralCache::ReleaseListToSpans(void* start,size_t byte_size){
             _spanLists[index].Erase(span);
             span->_freeList=nullptr;
             span->_next=nullptr;
-            span->_prev==nullptr;
+            span->_prev=nullptr;
             _spanLists[index]._mtx.unlock();
             PageCache::Getinstance()->_pageMtx.lock();
             PageCache::Getinstance()->ReleaseSpanToPageCache(span);
@@ -33,7 +70,7 @@ void CentralCache::ReleaseListToSpans(void* start,size_t byte_size){
         start=next;
 
     }
-    
+    _spanLists[index]._mtx.unlock();
 }
 
 
@@ -58,7 +95,7 @@ size_t CentralCache::FetchRangeObj(void*& start, void*& end, size_t batchNum, si
     //修改span中的属性
     span->_freeList=NextObj(end);
     NextObj(end)=nullptr;
-    span->_useCount-=actNum;
+    span->_useCount+=actNum;
 
     _spanLists[index]._mtx.unlock();
     return actNum;

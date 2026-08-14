@@ -13,7 +13,7 @@ static void* ConcurrentAlloc(size_t size){
         size_t alisize=SizeClass::RoundUp(size);
         size_t kpage=alisize>>PAGE_SHIFT;
         PageCache::Getinstance()->_pageMtx.lock();
-        Span* span=PageCache::Getinstance()->newSpan(kpage);
+        Span* span=PageCache::Getinstance()->NewSpan(kpage);
         size_t size=span->_objSize;
         PageCache::Getinstance()->_pageMtx.unlock();
         void* ptr=(void*)(span->_pageId<<PAGE_SHIFT);
@@ -39,7 +39,7 @@ static void ConcurrentFree(void* ptr){
     }
     else{
         assert(pTLSThreadCache);
-        return pTLSThreadCache->Deallocate(ptr);
+        return pTLSThreadCache->Deallocate(ptr,size);
     }
 
 }

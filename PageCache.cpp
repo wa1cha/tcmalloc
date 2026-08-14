@@ -67,6 +67,7 @@ Span* PageCache::NewSpan(size_t k){
 
     bigSpan->_pageId=(PAGE_ID)ptr>>PAGE_SHIFT;
     bigSpan->_n=NPAGE-1;
+    
 
     _spanLists[bigSpan->_n].PushFront(bigSpan);
     return NewSpan(k);
